@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://libs.cartocdn.com/carto-vl/v1.4.4/carto-vl.min.js"></script>
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.js"></script>
+    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.css" rel="stylesheet" />
+    
+    
+     <link href="cartofiles/styles.css" rel="stylesheet">
+    <link href="https://carto.com/developers/carto-vl/v1.4.4/examples/maps/style.css" rel="stylesheet">
+    
+<style>
+    aside.toolbox {
+        max-width: 400px;
+    }
+</style>  
+    
+</head>
+<body>
+    <!-- Add map container -->
+    <div id="map"></div>
+    
+    
+    
+    <!-- Animation play pause control elements (the code to add the toolbox with play and pause button)-->
+    <aside class="toolbox">
+        <div class="box">
+            <header>
+                <h1>Geolife GPS Trajectories Beijing: 2010 Data Visualised over 24hr</h1>
+            </header>
+            <section>
+                <p class="description open-sans">Geolife dataset created by <a href="https://www.microsoft.com/en-us/download/details.aspx?id=52367&from=https%3A%2F%2Fresearch.microsoft.com%2Fen-us%2Fdownloads%2Fb16d359d-d164-469e-9fd4-daa38f2b2e13%2F">Zheng et al. 2012</a>, Microsoft Research Asia. Visualisation by <a href="https://www.ucl.ac.uk/bartlett/casa/dr-duncan-smith">D A Smith</a> using <a href="https://carto.com/developers/carto-vl/v0.10.0">Carto VL</a>.</p>
+            </section>
+            <section style="margin-top: 15px;">
+                <input type="button" id="js-play-button">
+                <input type="button" id="js-pause-button">
+                <input type="range" id="js-time-range" min="0" max="1" step="0.01" value="0.7">
+
+                <span id="js-current-time" class="open-sans"></span>
+            </section>
+            <hr>
+
+        </div>
+    </aside>
+    
+    
+    <div id="loader">
+        <div class="CDB-LoaderIcon CDB-LoaderIcon--big">
+            <svg class="CDB-LoaderIcon-spinner" viewBox="0 0 50 50">
+                <circle class="CDB-LoaderIcon-path" cx="25" cy="25" r="20" fill="none"></circle>
+            </svg>
+        </div>
+    </div>
+    
+    
+    
+    
+    
+    <script>
+        
+        // Add Mapbox basemap and set properties
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: carto.basemaps.darkmatter,
+            center: [116.4, 39.95],
+            zoom: 11
+        });
+        
+        
+        // Add navitation controls
+        const nav = new mapboxgl.NavigationControl();
+        map.addControl(nav, 'top-left');
+        map.addControl(new mapboxgl.FullscreenControl(), 'top-left');
+        
+        
+
+        //** CARTO VL functionality begins here **//
+
+        // Define user. API Key requires access to the Geolife dataset
+        carto.setDefaultAuth({
+            username: 'duncansmith',
+            apiKey: 'fDYGjv9MFpfBEBNgrcJ32w'
+        });
+
+        // Define source
+        const source = new carto.source.Dataset('geolife2010');
+
+        
+        // Define Viz object and custom style. @ objects are variables.
+        // Animation controlled using filter statement- filter: animation($timeColumnInDataset, durationOfAnimationSeconds, fade(fadeInSecs, fadeOutSecs))
+        // See https://carto.com/developers/carto-vl/guides/animated-visualizations/
+        
+        const viz1 = new carto.Viz(`
+            @duration: 360
+            @animation: animation($timedate, @duration, fade(0, 0.3))
+            filter: @animation
+            color: rgba(30,180,255,0.6)
+            width: ramp(zoomrange([15,18]),[7,20])
+            strokeWidth: 0
+        `);
+
+        const layer1 = new carto.Layer('layer1', source, viz1);
+        
+
+        layer1.addTo(map);
+
+        
+        // Get HTML elements
+        const $playbutton = document.getElementById('js-play-button');
+        const $pausebutton = document.getElementById('js-pause-button');
+        const $durationRange = document.getElementById('js-duration-range');
+        const $timeRange = document.getElementById('js-time-range');
+        const $spanDuration = document.getElementById('js-duration-span');
+        const $currentTime = document.getElementById('js-current-time');
+
+        // Set initial time range value
+        let last = $timeRange.value;
+        viz1.variables.animation.setProgressPct($timeRange.value);
+
+        
+        
+        // Listen to interaction events
+
+        $playbutton.addEventListener('click', () => {
+            // Play the animation
+            viz1.variables.animation.play();
+        });
+
+        $pausebutton.addEventListener('click', () => {
+            // Pause the animation
+            viz1.variables.animation.pause();
+        });
+
+        // Event listener for timeslider changes
+        $timeRange.addEventListener('input', () => {
+            // Update animation progress
+            viz1.variables.animation.setProgressPct($timeRange.value);
+            last = $timeRange.value;
+            $currentTime.innerText = viz1.variables.animation.getProgressValue().toISOString().substr(11,5); // Update time value on the control
+            
+            if(viz1.variables.animation.isPlaying()) { }
+            else { 
+                viz1.variables.animation.play();
+                viz1.variables.animation.pause();
+            }
+            
+        });
+
+        // Listen to layer events
+        layer1.on('updated', () => {
+            if ($timeRange.value == last) {
+                $timeRange.value = viz1.variables.animation.getProgressPct();
+                last = $timeRange.value;
+            }
+            $currentTime.innerText = viz1.variables.animation.getProgressValue().toISOString().substr(11,5);
+        });        
+    
+
+        layer1.on('loaded', hideLoader);
+
+        function hideLoader() {
+            document.getElementById('loader').style.opacity = '0';
+        }
+        
+        
+    </script>
+        
+        
+        
+
+</body>
+</html>
